@@ -1,193 +1,175 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 
-export default function Settings() {
-  const [form, setForm] = useState({
-    storeName: '',
-    storeAddress: '',
-    storePhone: '',
-    storeEmail: '',
-    currency: 'USD',
-    currencySymbol: '$',
-    taxRate: 0,
-    receiptFooter: '',
-    lowStockThreshold: 10,
-  });
+export default function Inventory() {
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [adjustModal, setAdjustModal] = useState(null);
+  const [adjustQty, setAdjustQty] = useState('');
+  const [adjustNote, setAdjustNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
 
-  useEffect(() => { fetchSettings(); }, []);
+  useEffect(() => { fetchProducts(); }, []);
 
-  const fetchSettings = async () => {
+  const fetchProducts = async () => {
     try {
-      const res = await api.get('/settings');
-      setForm(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+      const res = await api.get('/products');
+      setProducts(res.data);
+    } catch {}
+    finally { setLoading(false); }
   };
 
-  const handleSave = async () => {
+  const handleAdjust = async () => {
+    if (!adjustQty) return;
     setSaving(true);
-    setSuccess('');
-    setError('');
     try {
-      await api.put('/settings', form);
-      setSuccess('Settings saved successfully!');
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
+      const newStock = Math.max(0, adjustModal.stock + parseInt(adjustQty));
+      await api.put(`/products/${adjustModal._id}`, { stock: newStock });
+      setAdjustModal(null);
+      setAdjustQty('');
+      setAdjustNote('');
+      fetchProducts();
+    } catch { alert('Failed to update stock'); }
+    finally { setSaving(false); }
   };
 
-  const set = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
+  const handleSetStock = async (id, stock) => {
+    setSaving(true);
+    try {
+      await api.put(`/products/${id}`, { stock: Math.max(0, parseInt(stock)) });
+      fetchProducts();
+    } catch {}
+    finally { setSaving(false); }
+  };
 
-  if (loading) return <div className="loading-spinner"><div className="spinner"></div> Loading settings...</div>;
+  const filtered = products.filter((p) => {
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
+    const matchFilter = filter === 'all' || (filter === 'low' && p.stock <= p.lowStockThreshold && p.stock > 0) || (filter === 'out' && p.stock <= 0) || (filter === 'ok' && p.stock > p.lowStockThreshold);
+    return matchSearch && matchFilter;
+  });
+
+  const lowCount = products.filter((p) => p.stock <= p.lowStockThreshold && p.stock > 0).length;
+  const outCount = products.filter((p) => p.stock <= 0).length;
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      {success && <div className="alert alert-success mb-16"><i className="fa-solid fa-circle-check"></i>{success}</div>}
-      {error && <div className="alert alert-danger mb-16"><i className="fa-solid fa-circle-exclamation"></i>{error}</div>}
+    <div>
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
+        <div className="stat-card">
+          <div className="stat-icon green"><i className="fa-solid fa-check-circle"></i></div>
+          <div className="stat-info"><div className="label">In Stock</div><div className="value">{products.filter(p => p.stock > p.lowStockThreshold).length}</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon yellow"><i className="fa-solid fa-triangle-exclamation"></i></div>
+          <div className="stat-info"><div className="label">Low Stock</div><div className="value">{lowCount}</div><div className="sub">Needs restocking</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon red"><i className="fa-solid fa-xmark-circle"></i></div>
+          <div className="stat-info"><div className="label">Out of Stock</div><div className="value">{outCount}</div></div>
+        </div>
+      </div>
 
-      {/* Store Info */}
-      <div className="card mb-24">
+      <div className="flex-between mb-24">
+        <div style={{ display: 'flex', gap: 10, flex: 1, flexWrap: 'wrap' }}>
+          <div className="search-box" style={{ minWidth: 220 }}>
+            <i className="fa-solid fa-search"></i>
+            <input className="form-control" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 36 }} />
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {['all', 'ok', 'low', 'out'].map((f) => (
+              <button key={f} className={`btn ${filter === f ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setFilter(f)} style={{ textTransform: 'capitalize' }}>{f === 'all' ? 'All' : f === 'ok' ? 'In Stock' : f === 'low' ? 'Low Stock' : 'Out of Stock'}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
         <div className="card-header">
-          <h3><i className="fa-solid fa-store" style={{ marginRight: 8, color: 'var(--primary)' }}></i>Store Information</h3>
+          <h3><i className="fa-solid fa-warehouse" style={{ marginRight: 8, color: 'var(--primary)' }}></i>Inventory ({filtered.length} items)</h3>
         </div>
-        <div className="card-body">
-          <div className="row">
-            <div className="col-6">
-              <div className="form-group">
-                <label className="form-label">Store Name</label>
-                <input className="form-control" value={form.storeName} onChange={(e) => set('storeName', e.target.value)} placeholder="My Store" />
-              </div>
-            </div>
-            <div className="col-6">
-              <div className="form-group">
-                <label className="form-label">Phone Number</label>
-                <input className="form-control" value={form.storePhone} onChange={(e) => set('storePhone', e.target.value)} placeholder="+1 555 000 0000" />
-              </div>
-            </div>
-            <div className="col-12">
-              <div className="form-group">
-                <label className="form-label">Address</label>
-                <input className="form-control" value={form.storeAddress} onChange={(e) => set('storeAddress', e.target.value)} placeholder="123 Main St, City, Country" />
-              </div>
-            </div>
-            <div className="col-12">
-              <div className="form-group">
-                <label className="form-label">Email</label>
-                <input type="email" className="form-control" value={form.storeEmail} onChange={(e) => set('storeEmail', e.target.value)} placeholder="store@example.com" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tax & Currency */}
-      <div className="card mb-24">
-        <div className="card-header">
-          <h3><i className="fa-solid fa-percent" style={{ marginRight: 8, color: 'var(--primary)' }}></i>Tax & Currency</h3>
-        </div>
-        <div className="card-body">
-          <div className="row">
-            <div className="col-6">
-              <div className="form-group">
-                <label className="form-label">Tax Rate (%)</label>
-                <input type="number" className="form-control" value={form.taxRate} onChange={(e) => set('taxRate', parseFloat(e.target.value) || 0)} min="0" max="100" step="0.1" />
-                <small style={{ color: 'var(--gray)', fontSize: 12 }}>Applied automatically in billing</small>
-              </div>
-            </div>
-            <div className="col-6">
-              <div className="form-group">
-                <label className="form-label">Currency Code</label>
-                <select className="form-control" value={form.currency} onChange={(e) => set('currency', e.target.value)}>
-                  <option value="USD">USD — US Dollar</option>
-                  <option value="EUR">EUR — Euro</option>
-                  <option value="GBP">GBP — British Pound</option>
-                  <option value="LKR">LKR — Sri Lankan Rupee</option>
-                  <option value="INR">INR — Indian Rupee</option>
-                  <option value="AUD">AUD — Australian Dollar</option>
-                  <option value="CAD">CAD — Canadian Dollar</option>
-                </select>
-              </div>
-            </div>
-            <div className="col-6">
-              <div className="form-group">
-                <label className="form-label">Currency Symbol</label>
-                <input className="form-control" value={form.currencySymbol} onChange={(e) => set('currencySymbol', e.target.value)} placeholder="$" maxLength={3} />
-              </div>
-            </div>
-          </div>
+        <div className="table-wrapper">
+          {loading ? <div className="loading-spinner"><div className="spinner"></div></div> : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>SKU</th>
+                  <th>Category</th>
+                  <th>Current Stock</th>
+                  <th>Low Stock Alert</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr key={p._id}>
+                    <td style={{ fontWeight: 600 }}>{p.name}</td>
+                    <td><code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>{p.sku}</code></td>
+                    <td><span className="badge badge-primary">{p.category}</span></td>
+                    <td>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: p.stock <= 0 ? 'var(--danger)' : p.stock <= p.lowStockThreshold ? 'var(--warning)' : 'var(--success)' }}>
+                        {p.stock}
+                      </span>
+                    </td>
+                    <td>{p.lowStockThreshold}</td>
+                    <td>
+                      {p.stock <= 0 ? <span className="badge badge-danger"><i className="fa-solid fa-xmark" style={{ marginRight: 4 }}></i>Out of Stock</span>
+                        : p.stock <= p.lowStockThreshold ? <span className="badge badge-warning"><i className="fa-solid fa-triangle-exclamation" style={{ marginRight: 4 }}></i>Low Stock</span>
+                        : <span className="badge badge-success"><i className="fa-solid fa-check" style={{ marginRight: 4 }}></i>Good</span>}
+                    </td>
+                    <td>
+                      <button className="btn btn-outline btn-sm" onClick={() => { setAdjustModal(p); setAdjustQty(''); }}>
+                        <i className="fa-solid fa-arrows-up-down"></i> Adjust
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr><td colSpan="7"><div className="empty-state"><i className="fa-solid fa-warehouse"></i><h3>No products match</h3></div></td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
-      {/* Inventory Settings */}
-      <div className="card mb-24">
-        <div className="card-header">
-          <h3><i className="fa-solid fa-warehouse" style={{ marginRight: 8, color: 'var(--primary)' }}></i>Inventory Settings</h3>
-        </div>
-        <div className="card-body">
-          <div className="row">
-            <div className="col-6">
+      {adjustModal && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setAdjustModal(null); }}>
+          <div className="modal" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3>Adjust Stock — {adjustModal.name}</h3>
+              <button className="modal-close" onClick={() => setAdjustModal(null)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ background: '#f8fafc', padding: 14, borderRadius: 8, marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+                <span className="text-gray">Current Stock</span>
+                <span style={{ fontWeight: 700, fontSize: 18 }}>{adjustModal.stock}</span>
+              </div>
               <div className="form-group">
-                <label className="form-label">Default Low Stock Threshold</label>
-                <input type="number" className="form-control" value={form.lowStockThreshold} onChange={(e) => set('lowStockThreshold', parseInt(e.target.value) || 0)} min="0" />
-                <small style={{ color: 'var(--gray)', fontSize: 12 }}>Alert when stock falls below this value</small>
+                <label className="form-label">Adjustment (use + or - number)</label>
+                <input type="number" className="form-control" value={adjustQty} onChange={(e) => setAdjustQty(e.target.value)} placeholder="e.g. +50 or -10" />
               </div>
+              {adjustQty && (
+                <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '10px 14px', borderRadius: 8, fontSize: 14, fontWeight: 600 }}>
+                  New Stock: {Math.max(0, adjustModal.stock + parseInt(adjustQty || 0))}
+                </div>
+              )}
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label className="form-label">Note (optional)</label>
+                <input className="form-control" value={adjustNote} onChange={(e) => setAdjustNote(e.target.value)} placeholder="e.g. Received new shipment" />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setAdjustModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleAdjust} disabled={saving || !adjustQty}>
+                {saving ? 'Saving...' : <><i className="fa-solid fa-check"></i> Apply</>}
+              </button>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Receipt Settings */}
-      <div className="card mb-24">
-        <div className="card-header">
-          <h3><i className="fa-solid fa-receipt" style={{ marginRight: 8, color: 'var(--primary)' }}></i>Receipt Settings</h3>
-        </div>
-        <div className="card-body">
-          <div className="form-group">
-            <label className="form-label">Receipt Footer Message</label>
-            <input className="form-control" value={form.receiptFooter} onChange={(e) => set('receiptFooter', e.target.value)} placeholder="Thank you for your purchase!" />
-          </div>
-          {/* Preview */}
-          <div style={{ marginTop: 16 }}>
-            <label className="form-label" style={{ marginBottom: 10 }}>Receipt Preview</label>
-            <div className="receipt" style={{ maxWidth: 280 }}>
-              <div className="receipt-header">
-                <h2>{form.storeName || 'Store Name'}</h2>
-                <p>{form.storeAddress || 'Store Address'}</p>
-                <p>{form.storePhone}</p>
-              </div>
-              <hr className="receipt-divider" />
-              <div className="receipt-item"><span>Sample Item x1</span><span>{form.currencySymbol}9.99</span></div>
-              <div className="receipt-item"><span>Sample Item x2</span><span>{form.currencySymbol}19.98</span></div>
-              <hr className="receipt-divider" />
-              <div className="receipt-item"><span>Subtotal</span><span>{form.currencySymbol}29.97</span></div>
-              <div className="receipt-item"><span>Tax ({form.taxRate}%)</span><span>{form.currencySymbol}{(29.97 * form.taxRate / 100).toFixed(2)}</span></div>
-              <div className="receipt-total"><span>TOTAL</span><span>{form.currencySymbol}{(29.97 * (1 + form.taxRate / 100)).toFixed(2)}</span></div>
-              <hr className="receipt-divider" />
-              <div className="receipt-footer">{form.receiptFooter || 'Thank you!'}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-        <button className="btn btn-secondary" onClick={fetchSettings}>
-          <i className="fa-solid fa-rotate-left"></i> Reset
-        </button>
-        <button className="btn btn-primary btn-lg" onClick={handleSave} disabled={saving}>
-          {saving ? <><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></span> Saving...</> : <><i className="fa-solid fa-floppy-disk"></i> Save Settings</>}
-        </button>
-      </div>
+      )}
     </div>
   );
 }
-
