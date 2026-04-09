@@ -194,17 +194,7 @@ export default function Products() {
                     <input type="number" className="form-control" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder="0" min="0" />
                   </div>
                 </div>
-                <div className="col-6">
-                  <div className="form-group">
-                    <label className="form-label">Low Stock Alert</label>
-                    <input type="number" className="form-control" value={form.lowStockThreshold} onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })} placeholder="10" min="0" />
-                  </div>
-                </div>
-                <div className="col-12">
-                  <div className="form-group">
-                    <label className="form-label">Description</label>
-                    <input className="form-control" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional description" />
-                  </div>
+                
                 </div>
               </div>
             </div>
