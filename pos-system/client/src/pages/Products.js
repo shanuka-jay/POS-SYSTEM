@@ -169,31 +169,8 @@ export default function Products() {
                     <input className="form-control" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value.toUpperCase() })} placeholder="e.g. BEV-001" />
                   </div>
                 </div>
-                <div className="col-6">
-                  <div className="form-group">
-                    <label className="form-label">Category *</label>
-                    <input className="form-control" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Beverages" list="cats" />
-                    <datalist id="cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
-                  </div>
-                </div>
-                <div className="col-6">
-                  <div className="form-group">
-                    <label className="form-label">Price *</label>
-                    <input type="number" className="form-control" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0.00" min="0" step="0.01" />
-                  </div>
-                </div>
-                <div className="col-6">
-                  <div className="form-group">
-                    <label className="form-label">Cost Price</label>
-                    <input type="number" className="form-control" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="0.00" min="0" step="0.01" />
-                  </div>
-                </div>
-                <div className="col-6">
-                  <div className="form-group">
-                    <label className="form-label">Stock Quantity *</label>
-                    <input type="number" className="form-control" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder="0" min="0" />
-                  </div>
-                </div>
+                
+                
                 
                 </div>
               </div>
