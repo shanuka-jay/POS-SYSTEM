@@ -7,8 +7,8 @@ export default function Settings() {
     storeAddress: '',
     storePhone: '',
     storeEmail: '',
-    currency: 'USD',
-    currencySymbol: '$',
+    currency: 'LKR',
+    currencySymbol: 'Rs.',
     taxRate: 0,
     receiptFooter: '',
     lowStockThreshold: 10,
@@ -190,4 +190,3 @@ export default function Settings() {
     </div>
   );
 }
-
