@@ -9,7 +9,8 @@ router.get('/', getProducts);
 router.get('/categories', getCategories);
 router.get('/:id', getProduct);
 router.post('/', authorize('admin', 'manager'), createProduct);
-
+router.put('/:id', authorize('admin', 'manager'), updateProduct);
+router.delete('/:id', authorize('admin'), deleteProduct);
 
 module.exports = router;
 
